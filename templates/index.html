@@ -1,18 +1,29 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>nd004-p3</title>
-  <!-- Bootstrap -->
-  <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
-</head>
-<body>
-  <div class="container">
+{% extends "base.html" %}
+{% block content %}
+
     <h1>Welcome to Flask</h1>
     <br/>
+
     <p>click <a href="/">here</a> to go home.</p>
-  </div>
-</body>
-</html>
+
+    <div class="panel panel-default">
+        <div class="panel-body">
+            <div class="row">
+                <div class="col-md-4">
+                  {% if user %}
+                      <a href="{{ url_for('new_category') }}">Add Category</a>
+                  {% endif %}
+                    <h2>Category</h2>
+                  {% for category in catalog %}
+                      <div><a href="{{ url_for('category', category_name=category.name) }}">{{ category.name }}</a></div>
+                  {% endfor %}
+                </div>
+                <div class="col-md-8">
+                    <h2>Latest items</h2>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}

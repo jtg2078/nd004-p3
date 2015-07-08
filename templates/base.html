@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>nd004-p3</title>
+    <!-- Bootstrap -->
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+</head>
+<body>
+<nav class="navbar navbar-default navbar-static-top">
+    <div class="container">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse"
+                    data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">WHO Model List of Essential Medicines</a>
+        </div>
+        <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+          {% if user %}
+              <p class="navbar-text navbar-right">Welcome, <strong>{{ user }}</strong> ( <a
+                      href="{{ url_for('logout') }}"
+                      class="navbar-link">logout</a> )</p>
+          {% else %}
+              <a type="button" class="btn btn-success navbar-btn navbar-right"
+                 href="{{ url_for('login') }}">Sign in</a>
+          {% endif %}
+        </div>
+    </div>
+</nav>
+<div class="container">
+
+    <!-- show flash msg using bootstrap alert component -->
+  {% for message in get_flashed_messages() %}
+      <div class="alert alert-warning alert-dismissible" role="alert">
+          <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span
+                  aria-hidden="true">&times;</span></button>
+        {{ message }}
+      </div>
+  {% endfor %}
+
+    <!-- for child template -->
+  {% block content %}{% endblock %}
+
+    <!-- shows any error -->
+  {% if error %}
+      <p class="error"><strong>Error:</strong> {{ error }}</p>
+  {% endif %}
+
+</div>
+<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+<script src="{{ url_for('static', filename='js/jquery-2.1.4.min.js') }}"></script>
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+</body>
+</html>
