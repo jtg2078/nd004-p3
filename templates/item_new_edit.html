@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block content %}
+
+    <ol class="breadcrumb">
+        <li><a href="{{ url_for('home') }}">Home</a></li>
+      {% if from_category %}
+          <li><a href="{{ url_for('show_category', category_name=from_category) }}">{{ from_category }}</a></li>
+      {% endif %}
+        <li class="active">{{ edit_or_add }} Item</li>
+    </ol>
+
+    <h1>{{ edit_or_add }} Item</h1>
+    <form action="" method="post">
+        <div class="form-group">
+            <label for="inputName">Item Name</label>
+            <input type="text" class="form-control" name="name"
+                   id="inputName" placeholder="name of the item" {% if name %}value="{{ name }}"{% endif %}>
+        </div>
+        <div class="form-group">
+            <label for="inputDesc">Item Description</label>
+            <textarea class="form-control" rows="3" name="description"
+                      id="inputDesc"
+                      placeholder="item's description">{% if description %}{{ description }}{% endif %}</textarea>
+        </div>
+        <div class="form-group">
+            <label for="inputCategory">Category</label>
+            <select multiple class="form-control" name="category" id="inputCategory">
+              {% for category in catalog %}
+                  <option value="{{ category.name }}"
+                          {% if category.name == category_name %}selected{% endif %}>{{ category.name }}</option>
+              {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="inputSubcategory">Subcategory (optional)</label>
+            <select multiple class="form-control" name="subcategory" id="inputSubcategory">
+                <option value="">(none)</option>
+              {% for subcategory in subcategories %}
+                  <option value="{{ subcategory.name }}"
+                          {% if subcategory.name == subcategory_name %}selected{% endif %}>{{ subcategory.name }}</option>
+              {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-default">Submit</button>
+        <button type="button"
+                class="btn btn-link"
+                onclick="
+                    if(confirm('Are you sure you want to delete this item?'))
+                    {
+                        $('#deleteItemForm').submit();
+                    }
+                ">Delete this item
+        </button>
+    </form>
+  {% if edit_or_add == "Edit" %}
+    <!-- hidden form for delete action -->
+      <form action="{{ url_for('delete_item', category_name=category_name, item_name=name) }}"
+            method="post"
+            style="display: none"
+            id="deleteItemForm">
+      </form>
+  {% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        $('#inputCategory').change(function () {
+            // remove all options, but not the first
+            $('#inputSubcategory option:gt(0)').remove();
+            var url = "/catalog/" + $("#inputCategory").val() + "/subcategories.json";
+            $.getJSON(url).done(function (data) {
+                var subCategorySelect = $('#inputSubcategory');
+                console.log(data);
+                $.each(data.subcategories, function (i, subcategory) {
+                    var name = subcategory.name;
+                    subCategorySelect.append($("<option></option>").attr("value", name).text(name));
+                });
+            })
+        });
+    </script>
+
+{% endblock %}

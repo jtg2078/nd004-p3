@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+
+    <ol class="breadcrumb">
+        <li><a href="{{ url_for('home') }}">Home</a></li>
+        <li><a href="{{ url_for('show_category', category_name=category.name) }}">{{ category.name }}</a></li>
+        <li class="active">{{ item.name }}</li>
+    </ol>
+
+    <h1>{{ item.name }}</h1>
+  {% if user %}
+      <a href="{{ url_for('edit_item', category_name=item.category.name, item_name=item.name) }}">Edit</a>
+  {% endif %}
+    <br/>
+
+  {{ item.description|nl2br }}
+
+{% endblock %}

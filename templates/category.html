@@ -15,26 +15,39 @@
                       <span>|</span>
                       <a href="{{ url_for('new_subcategory', category_name=category.name) }}">Add Subcategory</a>
                       <span>|</span>
-                      <a href="{{ url_for('new_item') }}">Add Item</a>
+                      <a href="{{ url_for('new_item', default_category=category.name) }}">Add Item</a>
                   {% endif %}
 
                     <h3>{{ category.name }}</h3>
 
-                {% for subcategory in subcategories %}
-                    <p>
-                        <strong>{{ subcategory.name }}</strong>
-                    {% if user %}
-                        <a href="{{ url_for('edit_subcategory',
+                  {% for subcategory in subcategories %}
+                      <p>
+                          <strong>{{ subcategory.name }}</strong>
+                        {% if user %}
+                            <a href="{{ url_for('edit_subcategory',
                                             category_name=category.name,
                                             subcategory_name=subcategory.name) }}">Edit</a>
-                    {% endif %}
-                    </p>
-                {% endfor %}
-
-                  {% for item in items %}
-                      <p><a href="{{ url_for('show_item', item_name=name) }}">{{ item.name }}</a></p>
+                        {% endif %}
+                      </p>
+                      <ul class="list-unstyled">
+                        {% for item in subcategories_items[subcategory.id] %}
+                            <li style="margin-left: 10px">
+                                <a href="{{ url_for('show_item',
+                                             item_name=item.name,
+                                             category_name=category.name) }}">{{ item.name }}</a></li>
+                        {% endfor %}
+                      </ul>
+                      <br/>
                   {% endfor %}
 
+                    <ul class="list-unstyled">
+                      {% for item in items %}
+                          <li>
+                              <a href="{{ url_for('show_item',
+                                             item_name=item.name,
+                                             category_name=category.name) }}">{{ item.name }}</a></li>
+                      {% endfor %}
+                    </ul>
 
                 </div>
             </div>

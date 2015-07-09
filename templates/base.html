@@ -49,7 +49,7 @@
 
     <!-- shows any error -->
   {% if error %}
-      <p class="error"><strong>Error:</strong> {{ error }}</p>
+      <p class="error" style="margin-top: 10px"><strong>Error:</strong> {{ error }}</p>
   {% endif %}
 
 </div>
@@ -57,5 +57,7 @@
 <script src="{{ url_for('static', filename='js/jquery-2.1.4.min.js') }}"></script>
 <!-- Include all compiled plugins (below), or include individual files as needed -->
 <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+<!-- for child template to add additional scripts -->
+{% block scripts %}{% endblock %}
 </body>
 </html>
