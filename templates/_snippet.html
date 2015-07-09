@@ -1,0 +1,9 @@
+{% macro catalog_side_bar(catalog, user=None) %}
+  {% if user %}
+      <a href="{{ url_for('new_category') }}">Add Category</a>
+  {% endif %}
+    <h2>Category</h2>
+  {% for category in catalog %}
+      <p><a href="{{ url_for('show_category', category_name=category.name) }}">{{ category.name }}</a></p>
+  {% endfor %}
+{% endmacro %}
