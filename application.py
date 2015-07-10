@@ -1,11 +1,13 @@
 from functools import wraps
 from datetime import datetime
+from urlparse import urljoin
 import re
 import collections
 
 # flask related imports
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask import session as login_session
+from werkzeug.contrib.atom import AtomFeed
 
 # jinja2 related
 from jinja2 import evalcontextfilter, Markup, escape
@@ -65,11 +67,43 @@ def get_item(category, item_name):
             .first())
 
 
+def list_category():
+    """return list of categories"""
+    return db_session.query(Category).order_by(asc(Category.id))
+
+
 def list_subcategory(category):
     """return list of subcategory under given category"""
     return (db_session.query(Subcategory)
             .filter(Subcategory.category_id == category.id)
             .order_by(asc(Subcategory.id)))
+
+
+def list_subcategory_item(subcategory):
+    """return list of items under given subcategory"""
+    return (db_session.query(Item)
+            .filter(Item.subcategory_id == subcategory.id)
+            .order_by(asc(Item.id)))
+
+
+def list_non_subcategory_item(category):
+    """return list of items under given category and also not belong to any subcategory"""
+    return (db_session.query(Item)
+            .filter(Item.category_id == category.id)
+            .filter(Item.subcategory_id == None)
+            .order_by(asc(Item.id)))
+
+
+def list_item(category):
+    """return list of items in given category"""
+    return (db_session.query(Item)
+            .filter(Item.category_id == category.id)
+            .order_by(asc(Item.id)))
+
+
+def list_latest_item(limit):
+    """return list of latest items within given limit"""
+    return db_session.query(Item).order_by(desc(Item.added)).limit(limit).all()
 
 
 #  ------------------------------  decorators ------------------------------
@@ -143,12 +177,41 @@ def item_required(f):
 
 @app.route("/")
 def home():
-    items = db_session.query(Item).order_by(desc(Item.added))
-    catalog = db_session.query(Category).order_by(asc(Category.id))
+    items = list_latest_item(15)
+    catalog = list_category()
     return render_template("index.html",
                            user=login_session.get('user'),
                            catalog=catalog,
                            latest_items=items)
+
+
+@app.route("/catalog.json")
+def api_catalog():
+    catalog = []
+    for cat in list_category():
+        category = {'category': cat.serialize, 'subcategories': [], 'items': []}
+        for sub_cat in list_subcategory(cat):
+            sub_cat_items = list_subcategory_item(sub_cat)
+            category['subcategories'].append({'subcategory': sub_cat.serialize,
+                                              'items': [i.serialize for i in sub_cat_items]})
+        category['items'] = [i.serialize for i in list_non_subcategory_item(cat)]
+        catalog.append(category)
+    return jsonify({"catalog": catalog})
+
+
+@app.route('/recent.atom')
+def recent_feed():
+    feed = AtomFeed('Recent Items',
+                    feed_url=request.url, url=request.url_root)
+    items = list_latest_item(15)
+    for item in items:
+        feed.add(item.name, item.description,
+                 content_type='html',
+                 author=(item.user_id or 'system'),
+                 url= urljoin(request.url_root,
+                              url_for('show_item', category_name=item.category.name, item_name=item.name)),
+                 updated=item.updated)
+    return feed.get_response()
 
 
 #  ------------------------------  login / logout ------------------------------
@@ -180,13 +243,9 @@ def logout():
 @app.route("/catalog/<category_name>/items")
 @category_required
 def show_category(category_name=None, category=None):
-    catalog = db_session.query(Category).order_by(asc(Category.id))
-    subcategories = (db_session.query(Subcategory)
-                     .filter(Subcategory.category_id == category.id)
-                     .order_by(asc(Subcategory.id)))
-    all_items = (db_session.query(Item)
-                 .filter(Item.category_id == category.id)
-                 .order_by(asc(Item.id)))
+    catalog = list_category()
+    subcategories = list_subcategory(category)
+    all_items = list_item(category)
     subcategories_items = collections.defaultdict(list)
     items = []
     for item in all_items:
@@ -352,7 +411,7 @@ def new_item():
     from_category = request.args.get('default_category', None)
     category_name = from_category
     subcategory_name = None
-    catalog = db_session.query(Category).order_by(asc(Category.id))
+    catalog = list_category()
     subcategories = []
     if request.method == 'POST':
         category = None
@@ -415,7 +474,7 @@ def edit_item(category_name=None, category=None, item_name=None, item=None):
     subcategory_name = item.subcategory.name if item.subcategory else None
     subcategories = list_subcategory(category)
     from_category = category_name
-    catalog = db_session.query(Category).order_by(asc(Category.id))
+    catalog = list_category()
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
         description = request.form.get('description', '').strip()
