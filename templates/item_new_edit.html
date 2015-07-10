@@ -10,7 +10,7 @@
     </ol>
 
     <h1>{{ edit_or_add }} Item</h1>
-    <form action="" method="post">
+    <form action="" method="post" enctype="multipart/form-data">
         <div class="form-group">
             <label for="inputName">Item Name</label>
             <input type="text" class="form-control" name="name"
@@ -41,18 +41,48 @@
               {% endfor %}
             </select>
         </div>
-        <button type="submit" class="btn btn-default">Submit</button>
-      {% if edit_or_add == "Edit" %}
-          <button type="button"
-                  class="btn btn-link"
-                  onclick="
+        <div class="form-group">
+          {% if item_image %}
+              <div class="row">
+                  <div class="col-md-10">
+                      <label for="inputItemImage">Item Image (optional)</label>
+                      <input type="file" id="inputItemImage" name="image">
+                      <div class="checkbox">
+                          <label>
+                              <input type="checkbox" value="delete" name="delete_image">
+                              Delete image
+                          </label>
+                      </div>
+                  </div>
+                  <div class="col-md-2">
+                      <a href="{{ url_for('uploaded_file', filename=item_image.filename) }}">
+                          <img src="{{ url_for('uploaded_file', filename=item_image.filename) }}"
+                               alt="item's img" class="img-thumbnail">
+                      </a>
+                  </div>
+              </div>
+          {% else %}
+              <div class="col-mid-10">
+                  <label for="inputItemImage">Item Image (optional)</label>
+                  <input type="file" id="inputItemImage" name="image">
+              </div>
+          {% endif %}
+        </div>
+        <div class="form-group" style="margin-top: 30px">
+            <button type="submit" class="btn btn-default">Submit</button>
+          {% if edit_or_add == "Edit" %}
+              <button type="button"
+                      class="btn btn-link"
+                      onclick="
                     if(confirm('Are you sure you want to delete this item?'))
                     {
                         $('#deleteItemForm').submit();
                     }
                 ">Delete this item
-          </button>
-      {% endif %}
+              </button>
+          {% endif %}
+        </div>
+
     </form>
   {% if edit_or_add == "Edit" %}
     <!-- hidden form for delete action -->

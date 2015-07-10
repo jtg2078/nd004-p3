@@ -1,24 +1,22 @@
 from functools import wraps
 from datetime import datetime
 from urlparse import urljoin
-import re
-import collections
+import re, collections, os
 
 # flask related imports
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory
 from flask import session as login_session
 from werkzeug.contrib.atom import AtomFeed
+from werkzeug.utils import secure_filename
 
 # jinja2 related
 from jinja2 import evalcontextfilter, Markup, escape
-
 _paragraph_re = re.compile(r'(?:\r\n|\r|\n){2,}')
-
 
 # database related imports
 from sqlalchemy import create_engine, asc, desc
 from sqlalchemy.orm import sessionmaker
-from database_setup import Base, User, Category, Subcategory, Item
+from database_setup import Base, Category, Subcategory, Item, ItemImage
 
 # connect to Database and create database session
 engine = create_engine('sqlite:///catalog.db')
@@ -29,6 +27,16 @@ db_session = DBSession()
 app = Flask(__name__)
 app.secret_key = '3\x8b<\xbbP\x01\xc29< \xbbw\xea\xbf~\x8a\xbb$\xb9\x9e\x0cx\x88\xc4'
 
+# configure upload
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_DIR = os.path.join(ROOT_DIR, 'uploads')
+ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif'])
+app.config['UPLOAD_FOLDER'] = UPLOAD_DIR
+
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
+
 
 #  ------------------------------  jinja2 ------------------------------
 
@@ -36,8 +44,7 @@ app.secret_key = '3\x8b<\xbbP\x01\xc29< \xbbw\xea\xbf~\x8a\xbb$\xb9\x9e\x0cx\x88
 @app.template_filter()
 @evalcontextfilter
 def nl2br(eval_ctx, value):
-    result = u'\n\n'.join(u'<p>%s</p>' % p.replace('\n', '<br>\n') \
-                          for p in _paragraph_re.split(escape(value)))
+    result = u'\n\n'.join(u'<p>%s</p>' % p.replace('\n', '<br>\n') for p in _paragraph_re.split(escape(value)))
     if eval_ctx.autoescape:
         result = Markup(result)
     return result
@@ -65,6 +72,10 @@ def get_item(category, item_name):
             .filter(Item.category_id == category.id)
             .filter(Item.name == item_name)
             .first())
+
+def get_item_image(item):
+    """return image for the given item"""
+    return db_session.query(ItemImage).filter(ItemImage.item_id == item.id).first()
 
 
 def list_category():
@@ -104,6 +115,11 @@ def list_item(category):
 def list_latest_item(limit):
     """return list of latest items within given limit"""
     return db_session.query(Item).order_by(desc(Item.added)).limit(limit).all()
+
+
+def list_item_image():
+    """return list of item images"""
+    return db_session.query(ItemImage).order_by(asc(ItemImage.item_id)).all()
 
 
 #  ------------------------------  decorators ------------------------------
@@ -172,11 +188,12 @@ def item_required(f):
     return wrap
 
 
-#  ------------------------------  index ------------------------------
+#  ------------------------------  index & api ------------------------------
 
 
 @app.route("/")
 def home():
+    """renders the root page with list of categories and recent added items"""
     items = list_latest_item(15)
     catalog = list_category()
     return render_template("index.html",
@@ -187,6 +204,13 @@ def home():
 
 @app.route("/catalog.json")
 def api_catalog():
+    """
+    return entire catalog data set in JSON format
+    notes:
+        current implementation is inefficient due to nested db query calls
+        with better understanding of SQLAlchemy or some sort of magical join
+        could probably reduce db queries down to 1 or 2
+    """
     catalog = []
     for cat in list_category():
         category = {'category': cat.serialize, 'subcategories': [], 'items': []}
@@ -196,7 +220,7 @@ def api_catalog():
                                               'items': [i.serialize for i in sub_cat_items]})
         category['items'] = [i.serialize for i in list_non_subcategory_item(cat)]
         catalog.append(category)
-    return jsonify({"catalog": catalog})
+    return jsonify({"catalog": catalog, "item_images": [i.serialize for i in list_item_image()]})
 
 
 @app.route('/recent.atom')
@@ -214,7 +238,13 @@ def recent_feed():
     return feed.get_response()
 
 
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+
 #  ------------------------------  login / logout ------------------------------
+
 
 @app.route("/login", methods=['POST', 'GET'])
 def login():
@@ -325,6 +355,11 @@ def delete_category(category_name=None, category=None):
 @app.route("/catalog/<category_name>/subcategories.json")
 @category_required
 def api_subcategories(category_name=None, category=None):
+    """
+    returns list of subcategories for given category in JSON format
+
+    this method is primary used by new/edit item form for ajax loading subcategory list
+    """
     subcategories = list_subcategory(category)
     return jsonify({"subcategories": [i.serialize for i in subcategories]})
 
@@ -399,7 +434,11 @@ def delete_subcategory(category_name=None, category=None, subcategory_name=None,
 @category_required
 @item_required
 def show_item(category_name=None, category=None, item_name=None, item=None):
-    return render_template('item.html', user=login_session.get('user'), category=category, item=item)
+    return render_template('item.html',
+                           user=login_session.get('user'),
+                           category=category,
+                           item=item,
+                           item_image=get_item_image(item))
 
 
 @app.route("/catalog/item/new", methods=['POST', 'GET'])
@@ -420,6 +459,7 @@ def new_item():
         description = request.form.get('description', '').strip()
         category_name = request.form.get('category', '').strip()
         subcategory_name = request.form.get('subcategory', '').strip()
+        image_file = request.files.get('image', '')
         if not name:
             error = 'item name is missing'
         elif not category_name:
@@ -443,6 +483,12 @@ def new_item():
                 item.subcategory_id = subcategory.id
             db_session.add(item)
             db_session.commit()
+            if image_file and allowed_file(image_file.filename):
+                filename = "{0}-{1}".format(item.id, secure_filename(image_file.filename))
+                image_file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                image = ItemImage(item_id=item.id, filename=filename)
+                db_session.add(image)
+                db_session.commit()
             flash('New item %s successfully created' % name)
             return redirect(url_for('show_category', category_name=category_name))
     if category_name:
@@ -459,6 +505,7 @@ def new_item():
                            subcategories=subcategories,
                            from_category=from_category,
                            catalog=catalog,
+                           item_image=None,
                            edit_or_add="Add")
 
 
@@ -475,11 +522,14 @@ def edit_item(category_name=None, category=None, item_name=None, item=None):
     subcategories = list_subcategory(category)
     from_category = category_name
     catalog = list_category()
+    item_image = get_item_image(item)
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
         description = request.form.get('description', '').strip()
         category_name = request.form.get('category', '').strip()
         subcategory_name = request.form.get('subcategory', '').strip()
+        image_file = request.files.get('image', '')
+        delete_image = request.form.getlist('delete_image')
         if name:
             item.name = name
         if description:
@@ -501,8 +551,22 @@ def edit_item(category_name=None, category=None, item_name=None, item=None):
         if not error:
             db_session.add(item)
             db_session.commit()
+            if image_file and allowed_file(image_file.filename):
+                filename = "{0}-{1}".format(item.id, secure_filename(image_file.filename))
+                image_file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                if item_image:
+                    os.remove(os.path.join(app.config['UPLOAD_FOLDER'], item_image.filename))
+                    db_session.delete(item_image)
+                image = ItemImage(item_id=item.id, filename=filename)
+                db_session.add(image)
+                db_session.commit()
+            else:
+                if 'delete' in delete_image:
+                    os.remove(os.path.join(app.config['UPLOAD_FOLDER'], item_image.filename))
+                    db_session.delete(item_image)
+                    db_session.commit()
             flash('item {0} updated!'.format(item_name))
-            return redirect(url_for('show_category', category_name=category_name))
+            return redirect(url_for('show_item', category_name=category_name, item_name=name))
     return render_template('item_new_edit.html',
                            error=error,
                            user=login_session.get('user'),
@@ -513,6 +577,7 @@ def edit_item(category_name=None, category=None, item_name=None, item=None):
                            subcategories=subcategories,
                            from_category=from_category,
                            catalog=catalog,
+                           item_image=item_image,
                            edit_or_add="Edit")
 
 

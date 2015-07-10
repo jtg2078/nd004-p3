@@ -68,7 +68,7 @@ class Item(Base):
     name = Column(String(250), nullable=False)
     description = Column(String)
     added = Column(DateTime)
-    updated  = Column(DateTime)
+    updated = Column(DateTime)
     subcategory_id = Column(Integer, ForeignKey('subcategory.id'))
     subcategory = relationship(Subcategory)
     category_id = Column(Integer, ForeignKey('category.id'))
@@ -83,6 +83,24 @@ class Item(Base):
             'id': self.id,
             'name': self.name,
             'description': self.description,
+        }
+
+
+class ItemImage(Base):
+    __tablename__ = 'item_image'
+
+    id = Column(Integer, primary_key=True)
+    filename = Column(String(250))
+    item_id = Column(Integer, ForeignKey('item.id'))
+    item = relationship(Item)
+
+    @property
+    def serialize(self):
+        """Return object data in easily serializeable format"""
+        return {
+            'id': self.id,
+            'filename': self.filename,
+            'item_id': self.item_id
         }
 
 
