@@ -42,15 +42,17 @@
             </select>
         </div>
         <button type="submit" class="btn btn-default">Submit</button>
-        <button type="button"
-                class="btn btn-link"
-                onclick="
+      {% if edit_or_add == "Edit" %}
+          <button type="button"
+                  class="btn btn-link"
+                  onclick="
                     if(confirm('Are you sure you want to delete this item?'))
                     {
                         $('#deleteItemForm').submit();
                     }
                 ">Delete this item
-        </button>
+          </button>
+      {% endif %}
     </form>
   {% if edit_or_add == "Edit" %}
     <!-- hidden form for delete action -->

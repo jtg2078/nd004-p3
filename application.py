@@ -9,6 +9,7 @@ from flask import session as login_session
 
 # jinja2 related
 from jinja2 import evalcontextfilter, Markup, escape
+
 _paragraph_re = re.compile(r'(?:\r\n|\r|\n){2,}')
 
 
@@ -39,35 +40,37 @@ def nl2br(eval_ctx, value):
         result = Markup(result)
     return result
 
+
 #  ------------------------------  db helpers ------------------------------
 
 
 def get_category(category_name):
     """return first category with given name"""
-    return (db_session.query(Category).filter(Category.name == category_name).first())
+    return db_session.query(Category).filter(Category.name == category_name).first()
 
 
 def get_subcategory(category, subcategory_name):
     """return first subcategory with given name and in given category"""
     return (db_session.query(Subcategory)
-                      .filter(Subcategory.name == subcategory_name)
-                      .filter(Subcategory.category_id == category.id)
-                      .first())
+            .filter(Subcategory.name == subcategory_name)
+            .filter(Subcategory.category_id == category.id)
+            .first())
 
 
 def get_item(category, item_name):
     """return first item with given name from given category"""
     return (db_session.query(Item)
-                      .filter(Item.category_id == category.id)
-                      .filter(Item.name == item_name)
-                      .first())
+            .filter(Item.category_id == category.id)
+            .filter(Item.name == item_name)
+            .first())
 
 
 def list_subcategory(category):
     """return list of subcategory under given category"""
     return (db_session.query(Subcategory)
-                      .filter(Subcategory.category_id == category.id)
-                      .order_by(asc(Subcategory.id)))
+            .filter(Subcategory.category_id == category.id)
+            .order_by(asc(Subcategory.id)))
+
 
 #  ------------------------------  decorators ------------------------------
 
@@ -134,6 +137,7 @@ def item_required(f):
 
     return wrap
 
+
 #  ------------------------------  index ------------------------------
 
 
@@ -178,11 +182,11 @@ def logout():
 def show_category(category_name=None, category=None):
     catalog = db_session.query(Category).order_by(asc(Category.id))
     subcategories = (db_session.query(Subcategory)
-                               .filter(Subcategory.category_id == category.id)
-                               .order_by(asc(Subcategory.id)))
+                     .filter(Subcategory.category_id == category.id)
+                     .order_by(asc(Subcategory.id)))
     all_items = (db_session.query(Item)
-                           .filter(Item.category_id == category.id)
-                           .order_by(asc(Item.id)))
+                 .filter(Item.category_id == category.id)
+                 .order_by(asc(Item.id)))
     subcategories_items = collections.defaultdict(list)
     items = []
     for item in all_items:
@@ -203,6 +207,7 @@ def show_category(category_name=None, category=None):
 @login_required
 def new_category():
     error = None
+    category_name = None
     if request.method == 'POST':
         category_name = request.form.get('name', '').strip()
         if category_name:
@@ -213,7 +218,12 @@ def new_category():
             return redirect(url_for('home'))
         else:
             error = 'category name is missing'
-    return render_template('category_new.html', error=error, user=login_session.get('user'))
+    return render_template('category_new_edit.html',
+                           category_name=category_name,
+                           category=None,
+                           error=error,
+                           user=login_session.get('user'),
+                           edit_or_add="Add")
 
 
 @app.route("/catalog/<category_name>/edit", methods=['POST', 'GET'])
@@ -221,6 +231,7 @@ def new_category():
 @category_required
 def edit_category(category_name=None, category=None):
     error = None
+    category_name = category.name
     if request.method == 'POST':
         category_name = request.form.get('name', '').strip()
         if category_name:
@@ -231,7 +242,12 @@ def edit_category(category_name=None, category=None):
             return redirect(url_for('show_category', category_name=category_name))
         else:
             error = 'category name is missing'
-    return render_template('category_edit.html', category=category, user=login_session.get('user'), error=error)
+    return render_template('category_new_edit.html',
+                           category_name=category_name,
+                           category=category,
+                           user=login_session.get('user'),
+                           error=error,
+                           edit_or_add="Edit")
 
 
 @app.route("/catalog/<category_name>/delete", methods=['POST'])
@@ -259,6 +275,7 @@ def api_subcategories(category_name=None, category=None):
 @category_required
 def new_subcategory(category_name, category):
     error = None
+    subcategory_name = None
     if request.method == 'POST':
         subcategory_name = request.form.get('name', '').strip()
         if subcategory_name:
@@ -270,7 +287,13 @@ def new_subcategory(category_name, category):
             return redirect(url_for('show_category', category_name=category_name))
         else:
             error = 'subcategory name is missing'
-    return render_template('subcategory_new.html', category=category, error=error, user=login_session.get('user'))
+    return render_template('subcategory_new_edit.html',
+                           category=category,
+                           subcategory_name=subcategory_name,
+                           subcategory=None,
+                           error=error,
+                           user=login_session.get('user'),
+                           edit_or_add="Add")
 
 
 @app.route("/catalog/<category_name>/subcategory/<subcategory_name>/edit", methods=['POST', 'GET'])
@@ -279,19 +302,24 @@ def new_subcategory(category_name, category):
 @subcategory_required
 def edit_subcategory(category_name=None, category=None, subcategory_name=None, subcategory=None):
     error = None
+    subcategory_name = subcategory.name
     if request.method == 'POST':
         subcategory_name = request.form.get('name', '').strip()
         if subcategory_name:
             subcategory.name = subcategory_name
             db_session.add(subcategory)
             db_session.commit()
-            flash('Subcategory updated!')
+            flash('Subcategory {0} updated!'.format(subcategory_name))
             return redirect(url_for('show_category', category_name=category_name))
         else:
             error = 'Subcategory name is missing'
-    return render_template('subcategory_edit.html',
+    return render_template('subcategory_new_edit.html',
                            category=category,
-                           subcategory=subcategory, user=login_session.get('user'), error=error)
+                           subcategory_name=subcategory_name,
+                           subcategory=subcategory,
+                           user=login_session.get('user'),
+                           error=error,
+                           edit_or_add="Edit")
 
 
 @app.route("/catalog/<category_name>/subcategory/<subcategory_name>/delete", methods=['POST'])
@@ -438,8 +466,6 @@ def delete_item(category_name=None, category=None, item_name=None, item=None):
     db_session.commit()
     flash('Item {0} deleted!'.format(item_name))
     return redirect(url_for('show_category', category_name=category_name))
-
-
 
 
 if __name__ == "__main__":
