@@ -47,6 +47,7 @@
                   <div class="col-md-10">
                       <label for="inputItemImage">Item Image (optional)</label>
                       <input type="file" id="inputItemImage" name="image">
+
                       <div class="checkbox">
                           <label>
                               <input type="checkbox" value="delete" name="delete_image">
@@ -82,7 +83,7 @@
               </button>
           {% endif %}
         </div>
-
+        <input type="hidden" name="state" value="{{ state }}">
     </form>
   {% if edit_or_add == "Edit" %}
     <!-- hidden form for delete action -->
@@ -90,6 +91,7 @@
             method="post"
             style="display: none"
             id="deleteItemForm">
+          <input type="hidden" name="state" value="{{ state }}">
       </form>
   {% endif %}
 

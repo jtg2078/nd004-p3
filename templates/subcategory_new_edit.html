@@ -29,6 +29,7 @@
                 ">Delete this subcategory
           </button>
       {% endif %}
+        <input type="hidden" name="state" value="{{ state }}">
     </form>
   {% if edit_or_add == "Edit" %}
     <!-- hidden form for delete action -->
@@ -36,6 +37,7 @@
             method="post"
             style="display: none"
             id="deleteSubcategoryForm">
+          <input type="hidden" name="state" value="{{ state }}">
       </form>
   {% endif %}
 

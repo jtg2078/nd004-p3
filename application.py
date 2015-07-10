@@ -1,7 +1,7 @@
 from functools import wraps
 from datetime import datetime
 from urlparse import urljoin
-import re, collections, os
+import re, collections, os, random, string
 
 # flask related imports
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory
@@ -187,6 +187,23 @@ def item_required(f):
 
     return wrap
 
+# prevent_CSRF
+def prevent_CSRF(f):
+    @wraps(f)
+    def wrap(*args, **kwargs):
+        if request.method == 'GET':
+            state = ''.join(random.choice(string.ascii_uppercase + string.digits) for x in xrange(32))
+            login_session['state'] = state
+            kwargs['state'] = state
+        if request.method == 'POST':
+            state = request.form.get('state', '')
+            session_state = login_session.get('state', None)
+            if session_state != state:
+                flash('invalid post, possible due to Cross-Site Request Forgery (CSRF)')
+                return redirect(url_for('home'))
+        return f(*args, **kwargs)
+
+    return wrap
 
 #  ------------------------------  index & api ------------------------------
 
@@ -294,7 +311,8 @@ def show_category(category_name=None, category=None):
 
 @app.route('/catalog/category/new', methods=['POST', 'GET'])
 @login_required
-def new_category():
+@prevent_CSRF
+def new_category(state=None):
     error = None
     category_name = None
     if request.method == 'POST':
@@ -312,13 +330,15 @@ def new_category():
                            category=None,
                            error=error,
                            user=login_session.get('user'),
+                           state=state,
                            edit_or_add="Add")
 
 
 @app.route("/catalog/<category_name>/edit", methods=['POST', 'GET'])
 @login_required
 @category_required
-def edit_category(category_name=None, category=None):
+@prevent_CSRF
+def edit_category(category_name=None, category=None, state=None):
     error = None
     category_name = category.name
     if request.method == 'POST':
@@ -336,13 +356,15 @@ def edit_category(category_name=None, category=None):
                            category=category,
                            user=login_session.get('user'),
                            error=error,
+                           state=state,
                            edit_or_add="Edit")
 
 
 @app.route("/catalog/<category_name>/delete", methods=['POST'])
 @login_required
 @category_required
-def delete_category(category_name=None, category=None):
+@prevent_CSRF
+def delete_category(category_name=None, category=None, state=None):
     db_session.delete(category)
     db_session.commit()
     flash('Category {0} deleted!'.format(category_name))
@@ -367,7 +389,8 @@ def api_subcategories(category_name=None, category=None):
 @app.route('/catalog/<category_name>/subcategory/new', methods=['POST', 'GET'])
 @login_required
 @category_required
-def new_subcategory(category_name, category):
+@prevent_CSRF
+def new_subcategory(category_name=None, category=None, state=None):
     error = None
     subcategory_name = None
     if request.method == 'POST':
@@ -387,6 +410,7 @@ def new_subcategory(category_name, category):
                            subcategory=None,
                            error=error,
                            user=login_session.get('user'),
+                           state=state,
                            edit_or_add="Add")
 
 
@@ -394,7 +418,8 @@ def new_subcategory(category_name, category):
 @login_required
 @category_required
 @subcategory_required
-def edit_subcategory(category_name=None, category=None, subcategory_name=None, subcategory=None):
+@prevent_CSRF
+def edit_subcategory(category_name=None, category=None, subcategory_name=None, subcategory=None, state=None):
     error = None
     subcategory_name = subcategory.name
     if request.method == 'POST':
@@ -413,6 +438,7 @@ def edit_subcategory(category_name=None, category=None, subcategory_name=None, s
                            subcategory=subcategory,
                            user=login_session.get('user'),
                            error=error,
+                           state=state,
                            edit_or_add="Edit")
 
 
@@ -420,7 +446,8 @@ def edit_subcategory(category_name=None, category=None, subcategory_name=None, s
 @login_required
 @category_required
 @subcategory_required
-def delete_subcategory(category_name=None, category=None, subcategory_name=None, subcategory=None):
+@prevent_CSRF
+def delete_subcategory(category_name=None, category=None, subcategory_name=None, subcategory=None, state=None):
     db_session.delete(subcategory)
     db_session.commit()
     flash('Subcategory {0} deleted!'.format(subcategory_name))
@@ -443,7 +470,8 @@ def show_item(category_name=None, category=None, item_name=None, item=None):
 
 @app.route("/catalog/item/new", methods=['POST', 'GET'])
 @login_required
-def new_item():
+@prevent_CSRF
+def new_item(state=None):
     error = None
     name = None
     description = None
@@ -506,6 +534,7 @@ def new_item():
                            from_category=from_category,
                            catalog=catalog,
                            item_image=None,
+                           state=state,
                            edit_or_add="Add")
 
 
@@ -513,7 +542,8 @@ def new_item():
 @login_required
 @category_required
 @item_required
-def edit_item(category_name=None, category=None, item_name=None, item=None):
+@prevent_CSRF
+def edit_item(category_name=None, category=None, item_name=None, item=None, state=None):
     error = None
     name = item.name
     description = item.description
@@ -578,6 +608,7 @@ def edit_item(category_name=None, category=None, item_name=None, item=None):
                            from_category=from_category,
                            catalog=catalog,
                            item_image=item_image,
+                           state=state,
                            edit_or_add="Edit")
 
 
@@ -585,7 +616,8 @@ def edit_item(category_name=None, category=None, item_name=None, item=None):
 @login_required
 @category_required
 @item_required
-def delete_item(category_name=None, category=None, item_name=None, item=None):
+@prevent_CSRF
+def delete_item(category_name=None, category=None, item_name=None, item=None, state=None):
     db_session.delete(item)
     db_session.commit()
     flash('Item {0} deleted!'.format(item_name))

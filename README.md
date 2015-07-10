@@ -17,4 +17,6 @@ project 3: item catalog
 * [Full Stack Web Development with Flask](https://github.com/realpython/discover-flask/tree/part7)
 * [WHO Model List of Essential Medicines](https://en.wikipedia.org/wiki/WHO_Model_List_of_Essential_Medicines#Anaesthetics)
 * [The Flask Mega-Tutorial](http://blog.miguelgrinberg.com/post/the-flask-mega-tutorial-part-vii-unit-testing)
-
+* [Uploading Files](http://flask.pocoo.org/docs/0.10/patterns/fileuploads/)
+* [How to get if checkbox is checked on flask](http://stackoverflow.com/questions/20941539/how-to-get-if-checkbox-is-checked-on-flask)
+* [Generating Feeds with Flask](http://flask.pocoo.org/snippets/10/)
