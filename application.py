@@ -494,6 +494,15 @@ def edit_category(category_id=None, category_name=None, category=None, state=Non
 @prevent_CSRF
 def delete_category(category_id=None, category_name=None, category=None, state=None):
     db_session.delete(category)
+    for subcategory in list_subcategory(category):
+        db_session.delete(subcategory)
+    for item in list_item(category):
+        db_session.delete(item)
+        item_image = get_item_image(item)
+        if item_image:
+            # delete item's image record and image file as well
+            os.remove(os.path.join(app.config['UPLOAD_FOLDER'], item_image.filename))
+            db_session.delete(item_image)
     db_session.commit()
     flash('Category {0} deleted!'.format(category_name))
     return redirect(url_for('home'))
@@ -581,6 +590,14 @@ def edit_subcategory(category_id=None, category_name=None, category=None, subcat
 def delete_subcategory(category_id=None, category_name=None, category=None, subcategory_id=None,
                        subcategory_name=None, subcategory=None, state=None):
     db_session.delete(subcategory)
+    for item in list_subcategory_item(subcategory):
+        # delete all the items under this subcategory
+        db_session.delete(item)
+        item_image = get_item_image(item)
+        if item_image:
+            # delete item's image record and image file as well
+            os.remove(os.path.join(app.config['UPLOAD_FOLDER'], item_image.filename))
+            db_session.delete(item_image)
     db_session.commit()
     flash('Subcategory {0} deleted!'.format(subcategory_name))
     return redirect(url_for('show_category', category_id=category.id, category_name=category.name))
@@ -742,8 +759,7 @@ def edit_item(item_id=None, item_name=None, item=None, state=None):
                            edit_or_add="Edit")
 
 
-@app.route("/item/<int:item_id>/<path:item_name>/delete",
-           methods=['POST'])
+@app.route("/item/<int:item_id>/<path:item_name>/delete", methods=['POST'])
 @login_required
 @item_required
 @prevent_CSRF
@@ -751,6 +767,11 @@ def delete_item(item_id=None, item_name=None, item=None, state=None):
     category_name = item.category.name
     category_id = item.category.id
     db_session.delete(item)
+    item_image = get_item_image(item)
+    if item_image:
+        # delete item's image record and image file as well
+        os.remove(os.path.join(app.config['UPLOAD_FOLDER'], item_image.filename))
+        db_session.delete(item_image)
     db_session.commit()
     flash('Item {0} deleted!'.format(item_name))
     return redirect(url_for('show_category', category_id=category_id, category_name=category_name))
