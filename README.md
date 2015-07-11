@@ -37,6 +37,15 @@ auth options
 2. use google OAuth to login
 ```
 
+database
+
+```
+- the repository already includes a sqlite db with data
+- to setup a new empty database
+    1. delete catalog.db
+    2. (run) python database_setup.py 
+```
+
 
 ## reference
 * [nl2br filter](http://flask.pocoo.org/snippets/28/)
