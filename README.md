@@ -1,5 +1,40 @@
-# nd004-p3
-project 3: item catalog
+#Full Stack Web Developer Nanodegree project 3
+
+
+## How to run
+
+setup vagrant
+
+```
+https://docs.google.com/document/d/1jFjlq_f-hJoAZP8dYuo5H3xY62kGyziQmiv9EPIA7tM/pub?embedded=true
+```
+
+getting source code
+
+```
+cd fullstack/vagrant
+vagrant up
+vagrant ssh
+git clone git@github.com:jtg2078/nd004-p3.git
+
+```
+
+run
+
+```
+(copy contents of git cloned tournament folder into vagrant's tournament folder)
+
+cd fullstack/vagrant
+vagrant up
+vagrant ssh
+cd /vagrant/tournament
+psql
+create database tournament;
+\c tournament
+\i tournament.sql
+\q
+python tournament_test.py 
+```
 
 
 ## reference
