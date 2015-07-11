@@ -12,9 +12,6 @@ https://docs.google.com/document/d/1jFjlq_f-hJoAZP8dYuo5H3xY62kGyziQmiv9EPIA7tM/
 getting source code
 
 ```
-cd fullstack/vagrant
-vagrant up
-vagrant ssh
 git clone git@github.com:jtg2078/nd004-p3.git
 
 ```
@@ -22,18 +19,22 @@ git clone git@github.com:jtg2078/nd004-p3.git
 run
 
 ```
-(copy contents of git cloned tournament folder into vagrant's tournament folder)
+(copy contents of git cloned nd004-p3 folder into vagrant's catalog folder)
 
 cd fullstack/vagrant
 vagrant up
 vagrant ssh
-cd /vagrant/tournament
-psql
-create database tournament;
-\c tournament
-\i tournament.sql
-\q
-python tournament_test.py 
+cd /vagrant/catalog
+python application.py 
+```
+
+auth options
+
+```
+1. use default account to login
+    * username: admin
+    * password: admin
+2. use google OAuth to login
 ```
 
 
@@ -57,4 +58,3 @@ python tournament_test.py
 * [Generating Feeds with Flask](http://flask.pocoo.org/snippets/10/)
 * [Handling URLs containing slash '/' character](http://flask.pocoo.org/snippets/76/)
 * [Convert integer to string Jinja](http://stackoverflow.com/questions/19161093/convert-integer-to-string-jinja)
-* 
