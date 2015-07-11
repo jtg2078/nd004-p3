@@ -1,28 +1,35 @@
 from functools import wraps
 from datetime import datetime
 from urlparse import urljoin
-import re, collections, os, random, string
+import re, collections, os, random, string, json, httplib2
 
 # flask related imports
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory
 from flask import session as login_session
+from flask import make_response
 from werkzeug.contrib.atom import AtomFeed
 from werkzeug.utils import secure_filename
 
 # jinja2 related
 from jinja2 import evalcontextfilter, Markup, escape
+
 _paragraph_re = re.compile(r'(?:\r\n|\r|\n){2,}')
 
 # database related imports
 from sqlalchemy import create_engine, asc, desc
 from sqlalchemy.orm import sessionmaker
-from database_setup import Base, Category, Subcategory, Item, ItemImage
+from database_setup import Base, Category, Subcategory, Item, ItemImage, User
 
 # connect to Database and create database session
 engine = create_engine('sqlite:///catalog.db')
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 db_session = DBSession()
+
+# OAuth2 related imports
+from oauth2client.client import flow_from_clientsecrets
+from oauth2client.client import FlowExchangeError
+import requests
 
 app = Flask(__name__)
 app.secret_key = '3\x8b<\xbbP\x01\xc29< \xbbw\xea\xbf~\x8a\xbb$\xb9\x9e\x0cx\x88\xc4'
@@ -32,6 +39,9 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR = os.path.join(ROOT_DIR, 'uploads')
 ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif'])
 app.config['UPLOAD_FOLDER'] = UPLOAD_DIR
+
+# configure google OAuth
+CLIENT_ID = json.loads(open('client_secrets.json', 'r').read())['web']['client_id']
 
 
 def allowed_file(filename):
@@ -53,6 +63,11 @@ def nl2br(eval_ctx, value):
 #  ------------------------------  db helpers ------------------------------
 
 
+def get_user(email):
+    """return first user with given email"""
+    return db_session.query(User).filter(User.email == email).first()
+
+
 def get_category(category_name):
     """return first category with given name"""
     return db_session.query(Category).filter(Category.name == category_name).first()
@@ -72,6 +87,7 @@ def get_item(category, item_name):
             .filter(Item.category_id == category.id)
             .filter(Item.name == item_name)
             .first())
+
 
 def get_item_image(item):
     """return image for the given item"""
@@ -187,6 +203,7 @@ def item_required(f):
 
     return wrap
 
+
 # prevent_CSRF
 def prevent_CSRF(f):
     @wraps(f)
@@ -204,6 +221,7 @@ def prevent_CSRF(f):
         return f(*args, **kwargs)
 
     return wrap
+
 
 #  ------------------------------  index & api ------------------------------
 
@@ -249,8 +267,8 @@ def recent_feed():
         feed.add(item.name, item.description,
                  content_type='html',
                  author=(item.user_id or 'system'),
-                 url= urljoin(request.url_root,
-                              url_for('show_item', category_name=item.category.name, item_name=item.name)),
+                 url=urljoin(request.url_root,
+                             url_for('show_item', category_name=item.category.name, item_name=item.name)),
                  updated=item.updated)
     return feed.get_response()
 
@@ -264,7 +282,8 @@ def uploaded_file(filename):
 
 
 @app.route("/login", methods=['POST', 'GET'])
-def login():
+@prevent_CSRF
+def login(state=None):
     error = None
     if request.method == 'POST':
         if request.form['username'] != 'admin' or request.form['password'] != 'admin':
@@ -273,15 +292,114 @@ def login():
             login_session['user'] = 'admin'
             flash('You are now logged in')
             return redirect(url_for('home'))
-    return render_template('login.html', error=error)
+    return render_template('login.html', error=error, state=state)
 
 
 @app.route("/logout")
 @login_required
 def logout():
+    if login_session.get('user_type') == 'google':
+        credentials = login_session.get('credentials')
+        if credentials is None:
+            print 'Current user not connected to google'
+        else:
+            url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % credentials
+            h = httplib2.Http()
+            result = h.request(url, 'GET')[0]
+            if result['status'] == '200':
+                # Reset the user's sesson.
+                login_session.pop('credentials', None)
+                login_session.pop('gplus_id', None)
+                login_session.pop('user_type', None)
+                print 'invalidated google login token successfully'
+            else:
+                print 'Current user not connected to google'
     login_session.pop('user', None)
     flash('You are now logged out')
     return redirect(url_for('home'))
+
+
+@app.route('/google_connect', methods=['POST'])
+def google_connect():
+    # Validate state token
+    if request.args.get('state') != login_session['state']:
+        response = make_response(json.dumps('Invalid state parameter.'), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+    # Obtain authorization code
+    code = request.data
+
+    try:
+        # Upgrade the authorization code into a credentials object
+        oauth_flow = flow_from_clientsecrets('client_secrets.json', scope='')
+        oauth_flow.redirect_uri = 'postmessage'
+        credentials = oauth_flow.step2_exchange(code)
+    except FlowExchangeError:
+        response = make_response(
+            json.dumps('Failed to upgrade the authorization code.'), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+
+    # Check that the access token is valid.
+    access_token = credentials.access_token
+    url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=%s'
+           % access_token)
+    h = httplib2.Http()
+    result = json.loads(h.request(url, 'GET')[1])
+    # If there was an error in the access token info, abort.
+    if result.get('error') is not None:
+        response = make_response(json.dumps(result.get('error')), 500)
+        response.headers['Content-Type'] = 'application/json'
+
+    # Verify that the access token is used for the intended user.
+    gplus_id = credentials.id_token['sub']
+    if result['user_id'] != gplus_id:
+        response = make_response(
+            json.dumps("Token's user ID doesn't match given user ID."), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+
+    # Verify that the access token is valid for this app.
+    if result['issued_to'] != CLIENT_ID:
+        response = make_response(
+            json.dumps("Token's client ID does not match app's."), 401)
+        print "Token's client ID does not match app's."
+        response.headers['Content-Type'] = 'application/json'
+        return response
+
+    stored_credentials = login_session.get('credentials')
+    stored_gplus_id = login_session.get('gplus_id')
+    if stored_credentials is not None and gplus_id == stored_gplus_id:
+        response = make_response(json.dumps('Current user is already connected.'),
+                                 200)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+
+    # Store the access token in the session for later use.
+    login_session['credentials'] = credentials.access_token
+    login_session['gplus_id'] = gplus_id
+
+    # Get user info
+    userinfo_url = "https://www.googleapis.com/oauth2/v1/userinfo"
+    params = {'access_token': credentials.access_token, 'alt': 'json'}
+    answer = requests.get(userinfo_url, params=params)
+    user_info = answer.json()
+
+    # See if a user exists, if it doesn't make a new one
+    user = get_user(user_info['email'])
+    if not user:
+        user = User(name=user_info['name'],
+                    email=user_info['email'],
+                    picture=user_info['picture'])
+        db_session.add(user)
+        db_session.commit()
+
+    # save to session
+    login_session['user'] = user_info['name']
+    login_session['user_type'] = 'google'
+
+    flash("you are now logged in as %s" % user_info['name'])
+    return 'Google Login successful'
 
 
 #  ------------------------------  category ------------------------------
