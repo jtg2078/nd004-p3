@@ -20,3 +20,5 @@ project 3: item catalog
 * [Uploading Files](http://flask.pocoo.org/docs/0.10/patterns/fileuploads/)
 * [How to get if checkbox is checked on flask](http://stackoverflow.com/questions/20941539/how-to-get-if-checkbox-is-checked-on-flask)
 * [Generating Feeds with Flask](http://flask.pocoo.org/snippets/10/)
+* [Handling URLs containing slash '/' character](http://flask.pocoo.org/snippets/76/)
+* 

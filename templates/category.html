@@ -44,8 +44,8 @@
                       {% for item in items %}
                           <li>
                               <a href="{{ url_for('show_item',
-                                             item_name=item.name,
-                                             category_name=category.name) }}">{{ item.name }}</a></li>
+                                                  item_name=item.name,
+                                                  category_name=category.name) }}">{{ item.name }}</a></li>
                       {% endfor %}
                     </ul>
 

@@ -83,10 +83,8 @@ def get_subcategory(category, subcategory_name):
 
 def get_item(category, item_name):
     """return first item with given name from given category"""
-    return (db_session.query(Item)
-            .filter(Item.category_id == category.id)
-            .filter(Item.name == item_name)
-            .first())
+    q = db_session.query(Item).filter(Item.category_id == category.id).filter(Item.name == item_name)
+    return q.first()
 
 
 def get_item_image(item):
@@ -273,7 +271,7 @@ def recent_feed():
     return feed.get_response()
 
 
-@app.route('/uploads/<filename>')
+@app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
@@ -405,7 +403,7 @@ def google_connect():
 #  ------------------------------  category ------------------------------
 
 
-@app.route("/catalog/<category_name>/items")
+@app.route("/catalog/<path:category_name>/items")
 @category_required
 def show_category(category_name=None, category=None):
     catalog = list_category()
@@ -440,7 +438,7 @@ def new_category(state=None):
             db_session.add(category)
             db_session.commit()
             flash('New category %s Successfully Created' % category.name)
-            return redirect(url_for('home'))
+            return redirect(url_for('show_category', category_name=category_name))
         else:
             error = 'category name is missing'
     return render_template('category_new_edit.html',
@@ -452,7 +450,7 @@ def new_category(state=None):
                            edit_or_add="Add")
 
 
-@app.route("/catalog/<category_name>/edit", methods=['POST', 'GET'])
+@app.route("/catalog/<path:category_name>/edit", methods=['POST', 'GET'])
 @login_required
 @category_required
 @prevent_CSRF
@@ -478,7 +476,7 @@ def edit_category(category_name=None, category=None, state=None):
                            edit_or_add="Edit")
 
 
-@app.route("/catalog/<category_name>/delete", methods=['POST'])
+@app.route("/catalog/<path:category_name>/delete", methods=['POST'])
 @login_required
 @category_required
 @prevent_CSRF
@@ -492,7 +490,7 @@ def delete_category(category_name=None, category=None, state=None):
 #  ------------------------------  subcategory ------------------------------
 
 
-@app.route("/catalog/<category_name>/subcategories.json")
+@app.route("/catalog/<path:category_name>/subcategories.json")
 @category_required
 def api_subcategories(category_name=None, category=None):
     """
@@ -504,7 +502,7 @@ def api_subcategories(category_name=None, category=None):
     return jsonify({"subcategories": [i.serialize for i in subcategories]})
 
 
-@app.route('/catalog/<category_name>/subcategory/new', methods=['POST', 'GET'])
+@app.route('/catalog/<path:category_name>/subcategory/new', methods=['POST', 'GET'])
 @login_required
 @category_required
 @prevent_CSRF
@@ -532,7 +530,7 @@ def new_subcategory(category_name=None, category=None, state=None):
                            edit_or_add="Add")
 
 
-@app.route("/catalog/<category_name>/subcategory/<subcategory_name>/edit", methods=['POST', 'GET'])
+@app.route("/catalog/<path:category_name>/subcategory/<path:subcategory_name>/edit", methods=['POST', 'GET'])
 @login_required
 @category_required
 @subcategory_required
@@ -560,7 +558,7 @@ def edit_subcategory(category_name=None, category=None, subcategory_name=None, s
                            edit_or_add="Edit")
 
 
-@app.route("/catalog/<category_name>/subcategory/<subcategory_name>/delete", methods=['POST'])
+@app.route("/catalog/<path:category_name>/subcategory/<path:subcategory_name>/delete", methods=['POST'])
 @login_required
 @category_required
 @subcategory_required
@@ -575,7 +573,7 @@ def delete_subcategory(category_name=None, category=None, subcategory_name=None,
 #  ------------------------------  item ------------------------------
 
 
-@app.route("/catalog/<category_name>/<item_name>")
+@app.route("/catalog/<path:category_name>/item/<path:item_name>")
 @category_required
 @item_required
 def show_item(category_name=None, category=None, item_name=None, item=None):
@@ -595,7 +593,7 @@ def new_item(state=None):
     description = None
     from_category = request.args.get('default_category', None)
     category_name = from_category
-    subcategory_name = None
+    subcategory_name = request.args.get('default_subcategory', None)
     catalog = list_category()
     subcategories = []
     if request.method == 'POST':
@@ -636,7 +634,7 @@ def new_item(state=None):
                 db_session.add(image)
                 db_session.commit()
             flash('New item %s successfully created' % name)
-            return redirect(url_for('show_category', category_name=category_name))
+            return redirect(url_for('show_item', category_name=category_name, item_name=name))
     if category_name:
         category = get_category(category_name)
         if category:
@@ -656,7 +654,7 @@ def new_item(state=None):
                            edit_or_add="Add")
 
 
-@app.route("/catalog/<category_name>/<item_name>/edit", methods=['POST', 'GET'])
+@app.route("/catalog/<path:category_name>/item/<path:item_name>/edit", methods=['POST', 'GET'])
 @login_required
 @category_required
 @item_required
@@ -730,7 +728,7 @@ def edit_item(category_name=None, category=None, item_name=None, item=None, stat
                            edit_or_add="Edit")
 
 
-@app.route("/catalog/<category_name>/<item_name>/delete", methods=['POST'])
+@app.route("/catalog/<path:category_name>/item/<path:item_name>/delete", methods=['POST'])
 @login_required
 @category_required
 @item_required

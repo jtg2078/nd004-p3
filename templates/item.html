@@ -12,6 +12,15 @@
             <h1>{{ item.name }}</h1>
           {% if user %}
               <a href="{{ url_for('edit_item', category_name=item.category.name, item_name=item.name) }}">Edit</a>
+              <span>|</span>
+            {% if item.subcategory_id %}
+                <a href="{{ url_for('new_item', default_category=category.name, default_subcategory=item.subcategory.name) }}">Add
+                    Item</a>
+            {% else %}
+                <a href="{{ url_for('new_item', default_category=category.name) }}">Add
+                    Item</a>
+            {% endif %}
+
           {% endif %}
             <br/>
           {{ item.description|nl2br }}
