@@ -68,23 +68,31 @@ def get_user(email):
     return db_session.query(User).filter(User.email == email).first()
 
 
-def get_category(category_name):
-    """return first category with given name"""
-    return db_session.query(Category).filter(Category.name == category_name).first()
+def get_category(category_id):
+    """return first category with given id"""
+    try:
+        category_id = int(category_id)
+    except ValueError:
+        category_id = -1
+    return db_session.query(Category).filter(Category.id == category_id).first()
 
 
-def get_subcategory(category, subcategory_name):
-    """return first subcategory with given name and in given category"""
-    return (db_session.query(Subcategory)
-            .filter(Subcategory.name == subcategory_name)
-            .filter(Subcategory.category_id == category.id)
-            .first())
+def get_subcategory(subcategory_id):
+    """return first subcategory with given id"""
+    try:
+        subcategory_id = int(subcategory_id)
+    except ValueError:
+        subcategory_id = -1
+    return db_session.query(Subcategory).filter(Subcategory.id == subcategory_id).first()
 
 
-def get_item(category, item_name):
-    """return first item with given name from given category"""
-    q = db_session.query(Item).filter(Item.category_id == category.id).filter(Item.name == item_name)
-    return q.first()
+def get_item(item_id):
+    """return first item with given id"""
+    try:
+        item_id = int(item_id)
+    except ValueError:
+        item_id = -1
+    return db_session.query(Item).filter(Item.id == item_id).first()
 
 
 def get_item_image(item):
@@ -156,10 +164,11 @@ def login_required(f):
 def category_required(f):
     @wraps(f)
     def wrap(*args, **kwargs):
+        category_id = kwargs.get('category_id', '')
         category_name = kwargs.get('category_name', '')
-        category = get_category(category_name)
+        category = get_category(category_id)
         if not category:
-            flash('category with name {0} does not exist'.format(category_name))
+            flash('category {0} does not exist'.format(category_name))
             return redirect(url_for('home'))
         else:
             kwargs['category'] = category
@@ -174,10 +183,11 @@ def subcategory_required(f):
     def wrap(*args, **kwargs):
         category = kwargs.get('category')
         subcategory_name = kwargs.get('subcategory_name', '')
-        subcategory = get_subcategory(category, subcategory_name)
+        subcategory_id = kwargs.get('subcategory_id', '')
+        subcategory = get_subcategory(subcategory_id)
         if not subcategory:
-            flash('subcategory with name {0} does not exist'.format(subcategory_name))
-            return redirect(url_for('show_category', category_name=category.name))
+            flash('subcategory {0} does not exist'.format(subcategory_name))
+            return redirect(url_for('show_category', category_id=category.id, category_name=category.name))
         else:
             kwargs['subcategory'] = subcategory
             return f(*args, **kwargs)
@@ -191,10 +201,11 @@ def item_required(f):
     def wrap(*args, **kwargs):
         category = kwargs.get('category')
         item_name = kwargs.get('item_name', '')
-        item = get_item(category, item_name)
+        item_id = kwargs.get('item_id', '')
+        item = get_item(item_id)
         if not item:
-            flash('item with name {0} does not exist'.format(item_name))
-            return redirect(url_for('show_category', category_name=category.name))
+            flash('item {0} does not exist'.format(item_name))
+            return redirect(url_for('show_category', category_id=category.id, category_name=category.name))
         else:
             kwargs['item'] = item
             return f(*args, **kwargs)
@@ -266,7 +277,8 @@ def recent_feed():
                  content_type='html',
                  author=(item.user_id or 'system'),
                  url=urljoin(request.url_root,
-                             url_for('show_item', category_name=item.category.name, item_name=item.name)),
+                             url_for('show_item', category_id=item.category.id, category_name=item.category.name,
+                                     item_id=item.id, item_name=item.name)),
                  updated=item.updated)
     return feed.get_response()
 
@@ -403,9 +415,9 @@ def google_connect():
 #  ------------------------------  category ------------------------------
 
 
-@app.route("/catalog/<path:category_name>/items")
+@app.route("/category/<int:category_id>/<path:category_name>")
 @category_required
-def show_category(category_name=None, category=None):
+def show_category(category_id=None, category_name=None, category=None):
     catalog = list_category()
     subcategories = list_subcategory(category)
     all_items = list_item(category)
@@ -425,7 +437,7 @@ def show_category(category_name=None, category=None):
                            items=items)
 
 
-@app.route('/catalog/category/new', methods=['POST', 'GET'])
+@app.route('/category/new', methods=['POST', 'GET'])
 @login_required
 @prevent_CSRF
 def new_category(state=None):
@@ -438,7 +450,7 @@ def new_category(state=None):
             db_session.add(category)
             db_session.commit()
             flash('New category %s Successfully Created' % category.name)
-            return redirect(url_for('show_category', category_name=category_name))
+            return redirect(url_for('show_category', category_id=category.id, category_name=category.name))
         else:
             error = 'category name is missing'
     return render_template('category_new_edit.html',
@@ -450,11 +462,11 @@ def new_category(state=None):
                            edit_or_add="Add")
 
 
-@app.route("/catalog/<path:category_name>/edit", methods=['POST', 'GET'])
+@app.route("/category/<int:category_id>/<path:category_name>/edit", methods=['POST', 'GET'])
 @login_required
 @category_required
 @prevent_CSRF
-def edit_category(category_name=None, category=None, state=None):
+def edit_category(category_id=None, category_name=None, category=None, state=None):
     error = None
     category_name = category.name
     if request.method == 'POST':
@@ -464,7 +476,7 @@ def edit_category(category_name=None, category=None, state=None):
             db_session.add(category)
             db_session.commit()
             flash('Category updated!')
-            return redirect(url_for('show_category', category_name=category_name))
+            return redirect(url_for('show_category', category_id=category.id, category_name=category.name))
         else:
             error = 'category name is missing'
     return render_template('category_new_edit.html',
@@ -476,11 +488,11 @@ def edit_category(category_name=None, category=None, state=None):
                            edit_or_add="Edit")
 
 
-@app.route("/catalog/<path:category_name>/delete", methods=['POST'])
+@app.route("/category/<int:category_id>/<path:category_name>/delete", methods=['POST'])
 @login_required
 @category_required
 @prevent_CSRF
-def delete_category(category_name=None, category=None, state=None):
+def delete_category(category_id=None, category_name=None, category=None, state=None):
     db_session.delete(category)
     db_session.commit()
     flash('Category {0} deleted!'.format(category_name))
@@ -490,9 +502,9 @@ def delete_category(category_name=None, category=None, state=None):
 #  ------------------------------  subcategory ------------------------------
 
 
-@app.route("/catalog/<path:category_name>/subcategories.json")
+@app.route("/category/<int:category_id>/<path:category_name>/subcategories.json")
 @category_required
-def api_subcategories(category_name=None, category=None):
+def api_subcategories(category_id=None, category_name=None, category=None):
     """
     returns list of subcategories for given category in JSON format
 
@@ -502,11 +514,11 @@ def api_subcategories(category_name=None, category=None):
     return jsonify({"subcategories": [i.serialize for i in subcategories]})
 
 
-@app.route('/catalog/<path:category_name>/subcategory/new', methods=['POST', 'GET'])
+@app.route('/category/<int:category_id>/<path:category_name>/subcategory/new', methods=['POST', 'GET'])
 @login_required
 @category_required
 @prevent_CSRF
-def new_subcategory(category_name=None, category=None, state=None):
+def new_subcategory(category_id=None, category_name=None, category=None, state=None):
     error = None
     subcategory_name = None
     if request.method == 'POST':
@@ -517,7 +529,7 @@ def new_subcategory(category_name=None, category=None, state=None):
             db_session.add(subcategory)
             db_session.commit()
             flash('New subcategory %s created successfully' % subcategory.name)
-            return redirect(url_for('show_category', category_name=category_name))
+            return redirect(url_for('show_category', category_id=category.id, category_name=category.name))
         else:
             error = 'subcategory name is missing'
     return render_template('subcategory_new_edit.html',
@@ -530,12 +542,14 @@ def new_subcategory(category_name=None, category=None, state=None):
                            edit_or_add="Add")
 
 
-@app.route("/catalog/<path:category_name>/subcategory/<path:subcategory_name>/edit", methods=['POST', 'GET'])
+@app.route("/category/<int:category_id>/<path:category_name>/subcategory/<int:subcategory_id>/<path:subcategory_name>/edit",
+           methods=['POST', 'GET'])
 @login_required
 @category_required
 @subcategory_required
 @prevent_CSRF
-def edit_subcategory(category_name=None, category=None, subcategory_name=None, subcategory=None, state=None):
+def edit_subcategory(category_id=None, category_name=None, category=None, subcategory_id=None,
+                     subcategory_name=None, subcategory=None, state=None):
     error = None
     subcategory_name = subcategory.name
     if request.method == 'POST':
@@ -545,7 +559,7 @@ def edit_subcategory(category_name=None, category=None, subcategory_name=None, s
             db_session.add(subcategory)
             db_session.commit()
             flash('Subcategory {0} updated!'.format(subcategory_name))
-            return redirect(url_for('show_category', category_name=category_name))
+            return redirect(url_for('show_category', category_id=category.id, category_name=category.name))
         else:
             error = 'Subcategory name is missing'
     return render_template('subcategory_new_edit.html',
@@ -558,25 +572,27 @@ def edit_subcategory(category_name=None, category=None, subcategory_name=None, s
                            edit_or_add="Edit")
 
 
-@app.route("/catalog/<path:category_name>/subcategory/<path:subcategory_name>/delete", methods=['POST'])
+@app.route("/category/<int:category_id>/<path:category_name>/subcategory/<int:subcategory_id>/<path:subcategory_name>/delete",
+           methods=['POST'])
 @login_required
 @category_required
 @subcategory_required
 @prevent_CSRF
-def delete_subcategory(category_name=None, category=None, subcategory_name=None, subcategory=None, state=None):
+def delete_subcategory(category_id=None, category_name=None, category=None, subcategory_id=None,
+                       subcategory_name=None, subcategory=None, state=None):
     db_session.delete(subcategory)
     db_session.commit()
     flash('Subcategory {0} deleted!'.format(subcategory_name))
-    return redirect(url_for('show_category', category_name=category_name))
+    return redirect(url_for('show_category', category_id=category.id, category_name=category.name))
 
 
 #  ------------------------------  item ------------------------------
 
 
-@app.route("/catalog/<path:category_name>/item/<path:item_name>")
+@app.route("/category/<int:category_id>/<path:category_name>/item/<int:item_id>/<path:item_name>")
 @category_required
 @item_required
-def show_item(category_name=None, category=None, item_name=None, item=None):
+def show_item(category_id=None, category_name=None, category=None, item_id=None, item_name=None, item=None):
     return render_template('item.html',
                            user=login_session.get('user'),
                            category=category,
@@ -584,16 +600,15 @@ def show_item(category_name=None, category=None, item_name=None, item=None):
                            item_image=get_item_image(item))
 
 
-@app.route("/catalog/item/new", methods=['POST', 'GET'])
+@app.route("/item/new", methods=['POST', 'GET'])
 @login_required
 @prevent_CSRF
 def new_item(state=None):
     error = None
     name = None
     description = None
-    from_category = request.args.get('default_category', None)
-    category_name = from_category
-    subcategory_name = request.args.get('default_subcategory', None)
+    category_id = request.args.get('category_id', '')
+    subcategory_id = request.args.get('subcategory_id', '')
     catalog = list_category()
     subcategories = []
     if request.method == 'POST':
@@ -601,20 +616,20 @@ def new_item(state=None):
         subcategory = None
         name = request.form.get('name', '').strip()
         description = request.form.get('description', '').strip()
-        category_name = request.form.get('category', '').strip()
-        subcategory_name = request.form.get('subcategory', '').strip()
+        category_id = request.form.get('category', '').strip()
+        subcategory_id = request.form.get('subcategory', '').strip()
         image_file = request.files.get('image', '')
         if not name:
             error = 'item name is missing'
-        elif not category_name:
+        elif not category_id:
             error = 'category is missing'
         else:
-            category = get_category(category_name)
+            category = get_category(category_id)
             if not category:
                 error = 'category is not found'
             else:
-                if subcategory_name:
-                    subcategory = get_subcategory(category, subcategory_name)
+                if subcategory_id:
+                    subcategory = get_subcategory(subcategory_id)
                     if not subcategory:
                         error = 'subcategory is not found'
         if error is None:
@@ -634,9 +649,10 @@ def new_item(state=None):
                 db_session.add(image)
                 db_session.commit()
             flash('New item %s successfully created' % name)
-            return redirect(url_for('show_item', category_name=category_name, item_name=name))
-    if category_name:
-        category = get_category(category_name)
+            return redirect(url_for('show_item', category_id=item.category.id, category_name=item.category.name,
+                                    item_id=item.id, item_name=item.name))
+    if category_id:
+        category = get_category(category_id)
         if category:
             subcategories = list_subcategory(category)
     return render_template('item_new_edit.html',
@@ -644,50 +660,47 @@ def new_item(state=None):
                            user=login_session.get('user'),
                            name=name,
                            description=description,
-                           category_name=category_name,
-                           subcategory_name=subcategory_name,
+                           category_id=category_id,
                            subcategories=subcategories,
-                           from_category=from_category,
+                           subcategory_id=subcategory_id,
                            catalog=catalog,
                            item_image=None,
                            state=state,
                            edit_or_add="Add")
 
 
-@app.route("/catalog/<path:category_name>/item/<path:item_name>/edit", methods=['POST', 'GET'])
+@app.route("/item/<int:item_id>/<path:item_name>/edit", methods=['POST', 'GET'])
 @login_required
-@category_required
 @item_required
 @prevent_CSRF
-def edit_item(category_name=None, category=None, item_name=None, item=None, state=None):
+def edit_item(item_id=None, item_name=None, item=None, state=None):
     error = None
     name = item.name
     description = item.description
-    category_name = item.category.name
-    subcategory_name = item.subcategory.name if item.subcategory else None
-    subcategories = list_subcategory(category)
-    from_category = category_name
+    category_id = str(item.category.id)
+    subcategory_id = str(item.subcategory.id) if item.subcategory else None
+    subcategories = list_subcategory(item.category)
     catalog = list_category()
     item_image = get_item_image(item)
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
         description = request.form.get('description', '').strip()
-        category_name = request.form.get('category', '').strip()
-        subcategory_name = request.form.get('subcategory', '').strip()
+        category_id = request.form.get('category', '').strip()
+        subcategory_id = request.form.get('subcategory', '').strip()
         image_file = request.files.get('image', '')
         delete_image = request.form.getlist('delete_image')
         if name:
             item.name = name
         if description:
             item.description = description
-        if category_name:
-            category = get_category(category_name)
+        if category_id:
+            category = get_category(category_id)
             if not category:
                 error = 'category is not found'
             else:
                 item.category_id = category.id
-                if subcategory_name:
-                    subcategory = get_subcategory(category, subcategory_name)
+                if subcategory_id:
+                    subcategory = get_subcategory(subcategory_id)
                     if not subcategory:
                         error = 'subcategory is not found'
                     else:
@@ -712,32 +725,35 @@ def edit_item(category_name=None, category=None, item_name=None, item=None, stat
                     db_session.delete(item_image)
                     db_session.commit()
             flash('item {0} updated!'.format(item_name))
-            return redirect(url_for('show_item', category_name=category_name, item_name=name))
+            return redirect(url_for('show_item', category_id=item.category.id, category_name=item.category.name,
+                                    item_id=item.id, item_name=item.name))
     return render_template('item_new_edit.html',
                            error=error,
                            user=login_session.get('user'),
                            name=name,
                            description=description,
-                           category_name=category_name,
-                           subcategory_name=subcategory_name,
+                           category_id=category_id,
+                           subcategory_id=subcategory_id,
                            subcategories=subcategories,
-                           from_category=from_category,
                            catalog=catalog,
                            item_image=item_image,
                            state=state,
+                           item=item,
                            edit_or_add="Edit")
 
 
-@app.route("/catalog/<path:category_name>/item/<path:item_name>/delete", methods=['POST'])
+@app.route("/item/<int:item_id>/<path:item_name>/delete",
+           methods=['POST'])
 @login_required
-@category_required
 @item_required
 @prevent_CSRF
-def delete_item(category_name=None, category=None, item_name=None, item=None, state=None):
+def delete_item(item_id=None, item_name=None, item=None, state=None):
+    category_name = item.category.name
+    category_id = item.category.id
     db_session.delete(item)
     db_session.commit()
     flash('Item {0} deleted!'.format(item_name))
-    return redirect(url_for('show_category', category_name=category_name))
+    return redirect(url_for('show_category', category_id=category_id, category_name=category_name))
 
 
 if __name__ == "__main__":

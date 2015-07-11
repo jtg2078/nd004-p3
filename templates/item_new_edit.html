@@ -3,9 +3,10 @@
 
     <ol class="breadcrumb">
         <li><a href="{{ url_for('home') }}">Home</a></li>
-      {% if from_category %}
-          <li><a href="{{ url_for('show_category', category_name=from_category) }}">{{ from_category }}</a></li>
-      {% endif %}
+        {% if edit_or_add == "Edit" %}
+            <li><a href="{{ url_for('show_category', category_id=item.category.id, category_name=item.category.name) }}">{{ item.category.name }}</a></li>
+            <li><a href="{{ url_for('show_item', category_id=item.category.id, category_name=item.category.name, item_id=item.id, item_name=item.name) }}">{{ item.name }}</a></li>
+        {% endif %}
         <li class="active">{{ edit_or_add }} Item</li>
     </ol>
 
@@ -26,8 +27,8 @@
             <label for="inputCategory">Category</label>
             <select multiple class="form-control" name="category" id="inputCategory">
               {% for category in catalog %}
-                  <option value="{{ category.name }}"
-                          {% if category.name == category_name %}selected{% endif %}>{{ category.name }}</option>
+                  <option value="{{ category.id }}"
+                          {% if category.id|string == category_id %}selected{% endif %}>{{ category.name }}</option>
               {% endfor %}
             </select>
         </div>
@@ -36,8 +37,8 @@
             <select multiple class="form-control" name="subcategory" id="inputSubcategory">
                 <option value="">(none)</option>
               {% for subcategory in subcategories %}
-                  <option value="{{ subcategory.name }}"
-                          {% if subcategory.name == subcategory_name %}selected{% endif %}>{{ subcategory.name }}</option>
+                  <option value="{{ subcategory.id }}"
+                          {% if subcategory.id|string == subcategory_id %}selected{% endif %}>{{ subcategory.name }}</option>
               {% endfor %}
             </select>
         </div>
@@ -87,7 +88,7 @@
     </form>
   {% if edit_or_add == "Edit" %}
     <!-- hidden form for delete action -->
-      <form action="{{ url_for('delete_item', category_name=category_name, item_name=name) }}"
+      <form action="{{ url_for('delete_item', item_id=item.id, item_name=item.name) }}"
             method="post"
             style="display: none"
             id="deleteItemForm">

@@ -17,13 +17,10 @@
 
                   {% for item in latest_items %}
                       <p>
-                          <a href="{{ url_for('show_item',
-                                                item_name=item.name,
-                                                category_name=item.category.name) }}">{{ item.name }}</a>
+                          <a href="{{ url_for('show_item', category_id=item.category.id, category_name=item.category.name, item_id=item.id, item_name=item.name) }}">{{ item.name }}</a>
                           <span>&nbsp;&nbsp;</span>
                           <span>(</span>
-                          <a href="{{ url_for('show_category',
-                                                category_name=item.category.name) }}">{{ item.category.name }}</a>
+                          <a href="{{ url_for('show_category', category_id=item.category.id, category_name=item.category.name) }}">{{ item.category.name }}</a>
                           <span>)</span>
                       </p>
                   {% endfor %}

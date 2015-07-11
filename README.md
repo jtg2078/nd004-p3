@@ -21,4 +21,5 @@ project 3: item catalog
 * [How to get if checkbox is checked on flask](http://stackoverflow.com/questions/20941539/how-to-get-if-checkbox-is-checked-on-flask)
 * [Generating Feeds with Flask](http://flask.pocoo.org/snippets/10/)
 * [Handling URLs containing slash '/' character](http://flask.pocoo.org/snippets/76/)
+* [Convert integer to string Jinja](http://stackoverflow.com/questions/19161093/convert-integer-to-string-jinja)
 * 
